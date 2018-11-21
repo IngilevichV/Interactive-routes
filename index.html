@@ -1,0 +1,154 @@
+<html>
+<head>
+  <title>Маршруты</title>
+  <link rel="stylesheet" href="./leaflet/leaflet.css"/>
+  <script src="./leaflet/leaflet.js"></script>
+  <script src="./leaflet/leaflet.curve.js"></script>
+  <script src="https://d3js.org/d3.v4.js"></script>
+  <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+  <meta charset=utf-8>
+  <style>
+	  body{
+	  	font-family: "Courier New", sans-serif;
+	  }
+
+    #map{ height: 95%; width: 100%; margin-top: 2%;}
+    .legend {
+    	font-size:28;
+    	font-weight: bold;
+    	margin: auto;
+    	width: 600px;
+    }
+    .to_port {
+    	width: 100px;
+    	height: 10px;
+    	background-color: rgb(161, 138, 74);
+    	display:inline-block;
+    }
+    .to_country {
+    	width: 100px;
+    	height: 10px;
+    	background-color: rgb(81, 151, 192);
+    	display:inline-block;
+    }
+    h1 {
+    	text-align: center;
+    	font-size: 40;
+    }
+  </style>
+</head>
+<body>
+	<h1>Перевозки угля</h1>
+	<div class="legend">
+		<div class="to_port"></div>
+		<span>Из региона РФ в порт</span>
+		<br>
+		<div class="to_country"></div>
+		<span>Из порта в зарубежную страну</span>
+	</div>
+	<div id="map"></div>
+  <script>
+
+  	// Инициализация карты
+  	var mapboxAccessToken = "pk.eyJ1IjoiaW5naWxldmljaHYiLCJhIjoiY2pvazBjOHpkMDJvZTNwbnlpcTYxMzEzYyJ9.ILNeHz7ZpIs23Ta3vRcMyQ";
+	var map = L.map('map').setView([49.016257, 66.542626], 3.5);
+
+	L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=' + mapboxAccessToken, {
+	    id: 'mapbox.light'
+	}).addTo(map);
+ 
+  	var group = L.layerGroup().addTo(map);
+ 
+  	// координаты портов
+	 $.getJSON("port_ids.geojson",function(data){
+	          L.geoJson(data).addTo(map);
+	        });
+	 // координаты столиц стран
+	 $.getJSON("country_ids.geojson",function(data){
+	          L.geoJson(data).addTo(map);
+	        });
+	 // координаты регионов
+	 $.getJSON("region_ids.geojson",function(data){
+	          L.geoJson(data).addTo(map);
+	        });
+
+	function drawRoutes(elem, field_lat1, field_lon1, field_lat2, field_lon2, c) {
+		var latlngs = [];
+
+		var latlng1 = [parseFloat(elem[field_lat1]),parseFloat(elem[field_lon1])],
+			latlng2 = [parseFloat(elem[field_lat2]),parseFloat(elem[field_lon2])];
+
+		var offsetX = latlng2[1] - latlng1[1],
+			offsetY = latlng2[0] - latlng1[0];
+
+		var r = Math.sqrt( Math.pow(offsetX, 2) + Math.pow(offsetY, 2) ),
+			theta = Math.atan2(offsetY, offsetX);
+
+		var thetaOffset = (3.14/10);
+
+		var r2 = (r/2)/(Math.cos(thetaOffset)),
+			theta2 = theta + thetaOffset;
+
+		var midpointX = (r2 * Math.cos(theta2)) + latlng1[1],
+				midpointY = (r2 * Math.sin(theta2)) + latlng1[0];
+
+			var midpointLatLng = [midpointY, midpointX];
+
+			latlngs.push(latlng1, midpointLatLng, latlng2);
+
+			var pathOptions = {
+				color: c,
+				weight: 0.5,
+				opacity:0.3
+			}
+
+			if (typeof document.getElementById('map').animate === "function") { 
+				var durationBase = 2000;
+			   	var duration = Math.sqrt(Math.log(r)) * durationBase;
+
+			   	if(duration>0) {
+			   		pathOptions.animate = {
+						duration: duration,
+						iterations: Infinity,
+						easing: 'ease-in-out',
+						direction: 'alternate'
+					}
+			   	} else {
+			   		pathOptions.animate = {
+						duration: 1,
+						iterations: Infinity,
+						easing: 'ease-in-out',
+						direction: 'alternate'
+					}
+			   	}
+			  	
+			}
+
+			var curvedPath = L.curve(
+					[
+						'M', latlng1,
+						'Q', midpointLatLng,
+							 latlng2
+					], pathOptions).addTo(map);
+	}
+
+
+
+
+  	d3.csv('from_region_to_port.csv', function(d){
+  		d.forEach(function(elem){
+  				drawRoutes(elem, "reg_lat", "reg_lon", "port_lat", "port_lon", 'rgb(161, 138, 74)');
+  		})
+  	});
+
+  	d3.csv('from_port_to_country.csv', function(d){
+  		d.forEach(function(elem){
+  				drawRoutes(elem, "port_lat", "port_lon", "con_lat", "con_lon", 'rgb(81, 151, 192)');
+  		})
+  	});
+
+
+  </script>
+</body>
+
+</html>
