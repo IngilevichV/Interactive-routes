@@ -1,3 +1,4 @@
 # Interactive-routes
 
-![Alt Text](interactive%20routes.gif)
+
+<img src="interactive%20routes.gif" width="40" height="40" />
